@@ -2,8 +2,15 @@
 name = "baserri"
 version = "0.1.0"
 edition = "2024"
-description = "Provisioner and Telegram control plane for a Raspberry Pi home server"
+description = "Provisioner and Telegram control plane for a Raspberry Pi home server. Two static binaries, zero dependencies."
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/enekos/baserri"
+homepage = "https://github.com/enekos/baserri"
+documentation = "https://github.com/enekos/baserri"
+keywords = ["raspberry-pi", "provisioning", "telegram", "homelab", "ssh"]
+categories = ["command-line-utilities"]
+exclude = [".cargo/"]
 
 [lib]
 name = "baserri"
