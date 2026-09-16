@@ -302,13 +302,31 @@ zram_percent = 50
 swap_mb = 2048
 journal_max = 200M
 
-docker = true
 tailscale = true
 firewall = true
 ssh_harden = true
 unattended_upgrades = true
 sudo_allowlist = true
 baserrid = true
+
+# there is no container runtime on this box by default.
+# set docker = true only if you decide the eval sandbox needs one.
+docker = false
+
+forge = true
+forge_url = https://baserri.your-tailnet.ts.net/
+forge_port = 3000
+
+postgres = true
+pg_db = dev
+pg_user = dev
+pg_password =
+
+valkey = true
+valkey_password =
+
+mailpit = true
+garage = true
 "#;
 
 const DAEMON_TEMPLATE: &str = r#"token =

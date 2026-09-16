@@ -106,6 +106,45 @@ too.
 `key = value`, `[section]` prefixes the key, `#` starts a comment unless it is
 inside a word, so a URL fragment survives.
 
+## No container runtime
+
+The box runs **no Docker and no podman**. Every service is a pinned binary and a
+systemd unit:
+
+| service | what it is | how it arrives |
+|---|---|---|
+| Forgejo | the forge | one 114 MB Go binary, SQLite, `forgejo.service` |
+| forgejo-runner | CI, **host execution mode** | one 20 MB Go binary |
+| PostgreSQL | shared dev database | apt, plus pgvector when the distro has it |
+| Valkey | shared cache | apt, falling back to redis on older Debian |
+| Mailpit | SMTP sink | one Go binary |
+| Garage | S3-compatible storage | one static Rust binary |
+
+Every download is **pinned to a version and verified against a SHA-256** before
+it is installed. Forgejo and forgejo-runner are checked against the checksums
+their projects publish; Mailpit and Garage publish none, so those two hashes are
+trust-on-first-use — recorded here, and re-verified on every later run.
+
+Three things follow from dropping the container runtime:
+
+- **The arm64 image problem disappears.** A host-mode runner uses no images, so
+  there is nothing to find an arm64 build of and nothing to pull onto USB3
+  storage — which on a Pi is most of a job's wall clock.
+- **You lose `container:` and `services:` in workflows.** No spinning up a
+  throwaway Postgres for a test job. Pin toolchains in the workflow instead of
+  trusting whatever apt last installed, because the box now drifts.
+- **You lose container isolation for CI jobs.** The runner unit is hardened with
+  `ProtectSystem=strict`, `ProtectHome`, `NoNewPrivileges` and a `MemoryMax`,
+  which is real but is not a container. For an untrusted or agentic workload,
+  that gap is the thing to close before you run it.
+
+MinIO is deliberately absent: `dl.min.io` now answers **410 Gone** for the
+community binary. Garage is a better fit here anyway — one static binary, built
+for small self-hosted deployments.
+
+Set `docker = true` in the config if you decide you want it back; the steps are
+still there, just off by default.
+
 ## What it does not do
 
 No agent on the box during provisioning, no state file, no inventory, no
@@ -115,7 +154,7 @@ checks whether you have run it yet.
 
 ## Status
 
-v0.1. It provisions a Pi 4B running Raspberry Pi OS Lite (arm64) and has been
+v0.2. It provisions a Pi 4B running Raspberry Pi OS Lite (arm64) and has been
 built and tested against that. Other Debian-family arm64 boards should work;
 nothing in the steps is Pi-specific except the `vcgencmd` probes, which degrade
 to `/sys` readings when it is absent.

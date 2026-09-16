@@ -6,6 +6,7 @@ pub mod facts;
 pub mod json;
 pub mod plan;
 pub mod run;
+pub mod services;
 pub mod ssh;
 pub mod step;
 pub mod telegram;

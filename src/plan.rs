@@ -241,7 +241,7 @@ echo hardened
         ));
     }
 
-    if c.flag("docker", true) {
+    if c.flag("docker", false) {
         steps.push(shell(
             "docker",
             "the forge, the runner and the dev services are all containers",
@@ -396,6 +396,7 @@ systemctl is-active baserrid
         ));
     }
 
+    steps.extend(crate::services::build(c));
     steps
 }
 
@@ -414,6 +415,21 @@ mod tests {
 
     fn names(steps: &[Step]) -> Vec<String> {
         steps.iter().map(|s| s.name().to_string()).collect()
+    }
+
+    #[test]
+    fn docker_is_off_by_default_and_the_forge_is_on() {
+        let names = names(&build(&ctx("host = pi\n", "root_kind=usb\n")));
+        assert!(!names.contains(&"docker".to_string()));
+        assert!(!names.contains(&"docker-logging".to_string()));
+        assert!(names.contains(&"forgejo".to_string()));
+        assert!(names.contains(&"forgejo-runner".to_string()));
+    }
+
+    #[test]
+    fn docker_comes_back_only_when_asked_for() {
+        let names = names(&build(&ctx("host = pi\ndocker = true\n", "root_kind=usb\n")));
+        assert!(names.contains(&"docker".to_string()));
     }
 
     #[test]
@@ -445,12 +461,15 @@ mod tests {
 
     #[test]
     fn flags_turn_whole_lanes_off() {
-        let off = "host = pi\ndocker = false\ntailscale = false\nfirewall = false\nbaserrid = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\n";
+        let off = "host = pi\ndocker = false\ntailscale = false\nfirewall = false\nbaserrid = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\nforge = false\npostgres = false\nvalkey = false\nmailpit = false\ngarage = false\n";
         let names = names(&build(&ctx(off, "root_kind=usb\n")));
-        for absent in ["docker", "tailscale", "firewall", "baserrid-binary", "ssh-harden"] {
+        for absent in ["docker", "tailscale", "firewall", "baserrid-binary", "ssh-harden", "forgejo", "postgres", "garage"] {
             assert!(!names.contains(&absent.to_string()), "{absent} should be off");
         }
-        assert!(names.contains(&"hostname".to_string()));
+        assert_eq!(
+            names,
+            vec!["hostname", "timezone", "packages", "journal-cap", "zram", "swapfile", "service-user"]
+        );
     }
 
     #[test]
