@@ -1,0 +1,25 @@
+[package]
+name = "arola"
+version = "0.1.0"
+edition = "2024"
+description = "Provisioner and Telegram control plane for a Raspberry Pi home server"
+license = "MIT"
+
+[lib]
+name = "arola"
+path = "src/lib.rs"
+
+[[bin]]
+name = "arola"
+path = "src/bin/arola.rs"
+
+[[bin]]
+name = "arolad"
+path = "src/bin/arolad.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
