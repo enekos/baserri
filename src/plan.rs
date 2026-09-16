@@ -11,6 +11,7 @@ pub struct Ctx {
     pub facts: Facts,
     pub daemon_binary: PathBuf,
     pub daemon_config: PathBuf,
+    pub sweep_script: PathBuf,
 }
 
 fn tpl(body: &str, vars: &[(&str, &str)]) -> String {
@@ -63,6 +64,7 @@ pub fn build(ctx: &Ctx) -> Vec<Step> {
         ("swapmb", &swap_mb),
         ("cap", &journal_cap),
         ("lan", &lan),
+        ("sweep", crate::cleanup::HELPER),
     ];
 
     let mut steps = vec![
@@ -328,7 +330,7 @@ echo active
             &tpl(
                 r#"
 cat > /etc/sudoers.d/baserri <<'SUDO'
-@svc@ ALL=(root) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/sbin/reboot, /sbin/reboot, /usr/bin/docker
+@svc@ ALL=(root) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/sbin/reboot, /sbin/reboot, /usr/bin/docker, @sweep@
 SUDO
 chmod 0440 /etc/sudoers.d/baserri
 visudo -c -f /etc/sudoers.d/baserri >/dev/null
@@ -338,6 +340,17 @@ echo present
             ),
             true,
         ));
+    }
+
+    if c.flag("cleanup", true) {
+        steps.push(Step::Upload(Upload {
+            name: "cleanup-helper".into(),
+            why: "the only root-capable thing the bot may call, and it takes a fixed target list".into(),
+            local: ctx.sweep_script.clone(),
+            remote: crate::cleanup::HELPER.into(),
+            mode: "0755".into(),
+            post: "install -d -m 0755 /usr/local/lib/baserri".into(),
+        }));
     }
 
     if c.flag("baserrid", true) {
@@ -410,6 +423,7 @@ mod tests {
             facts: Facts::parse(facts),
             daemon_binary: PathBuf::from("/tmp/baserrid"),
             daemon_config: PathBuf::from("/tmp/baserrid.conf"),
+            sweep_script: PathBuf::from("/tmp/sweep"),
         }
     }
 
@@ -461,7 +475,7 @@ mod tests {
 
     #[test]
     fn flags_turn_whole_lanes_off() {
-        let off = "host = pi\ndocker = false\ntailscale = false\nfirewall = false\nbaserrid = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\nforge = false\npostgres = false\nvalkey = false\nmailpit = false\ngarage = false\n";
+        let off = "host = pi\ncleanup = false\ndocker = false\ntailscale = false\nfirewall = false\nbaserrid = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\nforge = false\npostgres = false\nvalkey = false\nmailpit = false\ngarage = false\n";
         let names = names(&build(&ctx(off, "root_kind=usb\n")));
         for absent in ["docker", "tailscale", "firewall", "baserrid-binary", "ssh-harden", "forgejo", "postgres", "garage"] {
             assert!(!names.contains(&absent.to_string()), "{absent} should be off");
@@ -470,6 +484,17 @@ mod tests {
             names,
             vec!["hostname", "timezone", "packages", "journal-cap", "zram", "swapfile", "service-user"]
         );
+    }
+
+    #[test]
+    fn the_sudo_allowlist_names_the_sweep_helper_not_apt_or_find() {
+        let steps = build(&ctx("host = pi\n", "root_kind=usb\n"));
+        let Some(Step::Shell(s)) = steps.iter().find(|s| s.name() == "sudo-allowlist") else {
+            panic!("no sudo step")
+        };
+        assert!(s.apply.contains(crate::cleanup::HELPER));
+        assert!(!s.apply.contains("apt-get"), "granting apt-get is granting root");
+        assert!(!s.apply.contains("/usr/bin/find"));
     }
 
     #[test]

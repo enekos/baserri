@@ -1,8 +1,11 @@
 pub mod alerts;
 pub mod bot;
+pub mod cleanup;
 pub mod conf;
 pub mod exec;
 pub mod facts;
+pub mod github;
+pub mod http;
 pub mod json;
 pub mod plan;
 pub mod run;
@@ -10,3 +13,4 @@ pub mod services;
 pub mod ssh;
 pub mod step;
 pub mod telegram;
+pub mod watch;

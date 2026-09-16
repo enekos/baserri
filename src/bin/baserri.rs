@@ -1,3 +1,4 @@
+use baserri::cleanup;
 use baserri::conf::Conf;
 use baserri::facts::Facts;
 use baserri::plan::{self, Ctx};
@@ -114,10 +115,18 @@ where
             None => artifact()?,
         },
         daemon_config: PathBuf::from(conf.or("daemon_config", "baserrid.conf")),
+        sweep_script: render_sweep(&conf)?,
         conf,
         facts,
     };
     f(&ctx, &host)
+}
+
+fn render_sweep(conf: &Conf) -> Result<PathBuf, String> {
+    let body = cleanup::script(cleanup::keep_days(conf), &cleanup::journal_cap(conf));
+    let path = std::env::temp_dir().join(format!("baserri-sweep-{}.sh", std::process::id()));
+    std::fs::write(&path, body).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(path)
 }
 
 fn doctor(host: &Host) -> Result<(), String> {
@@ -327,6 +336,12 @@ valkey_password =
 
 mailpit = true
 garage = true
+
+cleanup = true
+
+[cleanup]
+keep_days = 7
+journal_max = 200M
 "#;
 
 const DAEMON_TEMPLATE: &str = r#"token =
@@ -336,11 +351,23 @@ confirm_ttl_s = 90
 timeout_s = 60
 poll_timeout_s = 25
 
+# a fine-grained personal access token with read access to the
+# repositories whose pull requests you want to hear about.
+[github]
+token =
+poll_s = 300
+
+[cleanup]
+keep_days = 7
+journal_max = 200M
+interval_s = 86400
+notify_gb = 2
+
 [alerts]
 disk_pct = 85
 temp_c = 75
 interval_s = 600
-units = docker, baserrid
+units = forgejo, baserrid
 
 [jobs]
 uptime = uptime

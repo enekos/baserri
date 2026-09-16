@@ -54,6 +54,8 @@ pub enum Cmd {
     Confirm(String),
     Cancel,
     Reboot,
+    Prs,
+    Cleanup { apply: bool },
     Unknown(String),
     Empty,
 }
@@ -84,6 +86,8 @@ pub fn parse(text: &str) -> Cmd {
         "yes" | "confirm" if !tail.is_empty() => Cmd::Confirm(tail.to_string()),
         "no" | "cancel" => Cmd::Cancel,
         "reboot" => Cmd::Reboot,
+        "prs" | "pr" => Cmd::Prs,
+        "cleanup" | "sweep" => Cmd::Cleanup { apply: tail.eq_ignore_ascii_case("apply") },
         other => Cmd::Unknown(other.to_string()),
     }
 }
@@ -111,6 +115,15 @@ mod tests {
         assert_eq!(parse("/yes a1b2c3"), Cmd::Confirm("a1b2c3".into()));
         assert_eq!(parse("/no"), Cmd::Cancel);
         assert_eq!(parse(""), Cmd::Empty);
+    }
+
+    #[test]
+    fn cleanup_only_sweeps_when_told_to() {
+        assert_eq!(parse("/cleanup"), Cmd::Cleanup { apply: false });
+        assert_eq!(parse("/cleanup apply"), Cmd::Cleanup { apply: true });
+        assert_eq!(parse("/cleanup APPLY"), Cmd::Cleanup { apply: true });
+        assert_eq!(parse("/cleanup please"), Cmd::Cleanup { apply: false });
+        assert_eq!(parse("/prs"), Cmd::Prs);
     }
 
     #[test]

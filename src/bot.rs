@@ -11,12 +11,15 @@ pub enum Reply {
     Text(String),
     Exec { title: String, command: String },
     Reboot,
+    Prs,
+    Cleanup { apply: bool },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Shell(String),
     Reboot,
+    Cleanup,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +44,8 @@ pub const HELP: &str = "<b>baserri</b>
 /jobs - the named jobs in the config
 /run &lt;job&gt; - run one of them
 /logs &lt;unit&gt; [n] - journal tail
+/prs - every open pull request you authored, with its checks
+/cleanup - what could be reclaimed; /cleanup apply frees it, after a confirm
 /sh &lt;cmd&gt; - any shell command, as the baserri user, after a confirm
 /reboot - after a confirm
 /no - drop whatever is waiting for a confirm";
@@ -111,6 +116,12 @@ impl Bot {
                     crate::telegram::escape_html(&command)
                 ))
             }
+            Cmd::Prs => Reply::Prs,
+            Cmd::Cleanup { apply: false } => Reply::Cleanup { apply: false },
+            Cmd::Cleanup { apply: true } => {
+                let token = self.arm(Action::Cleanup, up.chat, now);
+                Reply::Text(format!("sweep and delete? confirm with <code>/yes {token}</code>"))
+            }
             Cmd::Reboot => {
                 let token = self.arm(Action::Reboot, up.chat, now);
                 Reply::Text(format!("reboot the box? confirm with <code>/yes {token}</code>"))
@@ -127,6 +138,7 @@ impl Bot {
                 }
                 Some(p) => match p.action {
                     Action::Reboot => Reply::Reboot,
+                    Action::Cleanup => Reply::Cleanup { apply: true },
                     Action::Shell(command) => Reply::Exec { title: "sh".into(), command },
                 },
             },
@@ -285,6 +297,29 @@ mod tests {
     fn shell_can_be_switched_off_entirely() {
         let mut b = Bot::from_conf(&Conf::parse("allow = 42\nallow_shell = false\n").unwrap()).unwrap();
         assert_eq!(b.respond(&msg(42, "/sh id"), 0), Reply::Text("/sh is disabled in the config".into()));
+        assert!(b.pending().is_none());
+    }
+
+    #[test]
+    fn a_dry_cleanup_needs_no_confirm_but_an_applied_one_does() {
+        let mut b = bot();
+        assert_eq!(b.respond(&msg(42, "/cleanup"), 0), Reply::Cleanup { apply: false });
+        assert!(b.pending().is_none());
+
+        let Reply::Text(t) = b.respond(&msg(42, "/cleanup apply"), 0) else { panic!("no confirm") };
+        assert!(t.contains("/yes "));
+        assert_eq!(b.pending().unwrap().action, Action::Cleanup);
+        let token = b.pending().unwrap().token.clone();
+        assert_eq!(
+            b.respond(&msg(42, &format!("/yes {token}")), 1),
+            Reply::Cleanup { apply: true }
+        );
+    }
+
+    #[test]
+    fn a_stranger_cannot_sweep_the_disk() {
+        let mut b = bot();
+        assert_eq!(b.respond(&msg(9999, "/cleanup apply"), 0), Reply::Silent);
         assert!(b.pending().is_none());
     }
 

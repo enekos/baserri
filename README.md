@@ -87,11 +87,40 @@ The security model, in the order it matters:
 /df              filesystem usage
 /jobs            the named jobs in baserrid.conf
 /run <job>       run one of them
+/prs             every open PR you authored, with checks and review state
+/cleanup [apply] what can be reclaimed, and then reclaim it
 /logs <unit> [n] journal tail, unit names validated against a charset
 /sh <cmd>        anything, after a confirm
 /reboot          after a confirm
 /no              drop whatever is armed
 ```
+
+### Pull requests
+
+Set a GitHub token and the daemon watches every PR you have open — **one
+GraphQL request per poll** for the whole set, which is what makes it cheap
+enough to run on a Pi every five minutes.
+
+It reports **transitions, not state**:
+
+```
+❌ join-com/frontend#13276
+CI went red
+chore: let the proxy re-point redirects
+
+👍 enekos/odei#9
+approved
+⚠ conflicts with the base branch
+```
+
+The noise control is the feature. A check run *starting* is not news, so
+`PENDING` never notifies; only red, green-after-red, a review decision, a new
+conflict, and draft↔ready do. A poll where nothing meaningful changed sends
+nothing. The first poll after a restart is silent — it primes the state rather
+than replaying every open PR at you.
+
+`/prs` prints the board on demand. When a PR leaves the open list, one REST call
+settles whether it was merged or closed, so the last message is accurate.
 
 ### Alerts
 
@@ -99,6 +128,35 @@ A background thread re-probes on an interval and messages you on the
 **transition**, not every tick: disk over a threshold, SoC over a temperature,
 non-zero throttle flags, a named unit that stopped. Recovery is reported once
 too.
+
+## Storage cleanup
+
+A Pi with a forge, a host-mode runner and a Rust toolchain fills its disk in
+ways that are boring and predictable. `/cleanup` measures ten of them; `/cleanup
+apply` frees them, behind the same confirm token as `/sh`.
+
+```
+reclaimable 4.3 GB
+journal            412.0 MB
+apt-cache          193.4 MB
+runner-workspace   2.9 GB
+cargo-registry     781.2 MB
+```
+
+Targets: the journal above its cap, the apt cache, orphaned packages, runner
+workspaces and caches older than `keep_days`, the cargo registry a host-mode
+runner accumulates, Forgejo's own action logs and artifacts, rotated logs, tmp,
+and Docker if you turned it back on.
+
+**The daemon is not root, and cleanup does not change that.** Rather than
+granting it `apt-get` — which is root wearing a hat — the provisioner installs
+one fixed script at `/usr/local/lib/baserri/sweep` and the sudoers allowlist
+names exactly that path. The script takes a target from a closed list and
+refuses anything else; no argument from a chat message reaches a delete. Every
+delete is `-mindepth 1 -maxdepth 1` under a literal path.
+
+It also runs itself daily and only messages you when there is more than
+`notify_gb` to reclaim — so a healthy box stays quiet.
 
 ## Config
 
@@ -154,7 +212,7 @@ checks whether you have run it yet.
 
 ## Status
 
-v0.2. It provisions a Pi 4B running Raspberry Pi OS Lite (arm64) and has been
+v0.3. It provisions a Pi 4B running Raspberry Pi OS Lite (arm64) and has been
 built and tested against that. Other Debian-family arm64 boards should work;
 nothing in the steps is Pi-specific except the `vcgencmd` probes, which degrade
 to `/sys` readings when it is absent.
