@@ -1,5 +1,5 @@
 /target
-arola.conf
-arolad.conf
+baserri.conf
+baserrid.conf
 *.secret
 .ssh-control-*

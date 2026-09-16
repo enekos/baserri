@@ -1,33 +1,34 @@
-use arola::conf::Conf;
-use arola::facts::Facts;
-use arola::plan::{self, Ctx};
-use arola::json;
-use arola::run;
-use arola::ssh::Host;
-use arola::step::{State, Step};
+use baserri::conf::Conf;
+use baserri::facts::Facts;
+use baserri::plan::{self, Ctx};
+use baserri::json;
+use baserri::run;
+use baserri::ssh::Host;
+use baserri::step::{State, Step};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const TARGET: &str = "aarch64-unknown-linux-musl";
+const LINKER_VAR: &str = "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER";
 
-const USAGE: &str = "arola — provision the home box
+const USAGE: &str = "baserri — provision the home box
 
-  arola init                  write arola.conf and arolad.conf if they are missing
-  arola facts                 what the box says it is
-  arola doctor                facts plus everything that will bite
-  arola plan                  what apply would change
-  arola apply [--only NAME]   converge the box, one step at a time
-  arola build                 cross-compile arolad for aarch64 musl
-  arola ship                  build, then apply only the arolad steps
-  arola logs [N]              tail the control plane journal
+  baserri init                  write baserri.conf and baserrid.conf if they are missing
+  baserri facts                 what the box says it is
+  baserri doctor                facts plus everything that will bite
+  baserri plan                  what apply would change
+  baserri apply [--only NAME]   converge the box, one step at a time
+  baserri build                 cross-compile baserrid for aarch64 musl
+  baserri ship                  build, then apply only the baserrid steps
+  baserri logs [N]              tail the control plane journal
 
 options
-  --config PATH               default ./arola.conf
+  --config PATH               default ./baserri.conf
 ";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let conf_path = flag_value(&args, "--config").unwrap_or_else(|| "arola.conf".to_string());
+    let conf_path = flag_value(&args, "--config").unwrap_or_else(|| "baserri.conf".to_string());
     let only = flag_value(&args, "--only");
     let command = args.first().map(String::as_str).unwrap_or("help");
 
@@ -52,14 +53,14 @@ fn main() -> ExitCode {
             let built = build();
             match built {
                 Err(e) => Err(e),
-                Ok(_) => with_ctx(&conf_path, |ctx, host| converge(ctx, host, true, Some("arolad"))),
+                Ok(_) => with_ctx(&conf_path, |ctx, host| converge(ctx, host, true, Some("baserrid"))),
             }
         }
         "logs" => {
             let n = args.get(1).and_then(|v| v.parse::<u32>().ok()).unwrap_or(50);
             with_host(&conf_path, move |_, host| {
                 let out = host
-                    .sh(&format!("journalctl -u arolad -n {n} --no-pager"))
+                    .sh(&format!("journalctl -u baserrid -n {n} --no-pager"))
                     .map_err(|e| e.to_string())?;
                 print!("{}", out.joined());
                 Ok(())
@@ -71,7 +72,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("arola: {e}");
+            eprintln!("baserri: {e}");
             ExitCode::FAILURE
         }
     }
@@ -84,7 +85,7 @@ fn flag_value(args: &[String], flag: &str) -> Option<String> {
 fn load(conf_path: &str) -> Result<Conf, String> {
     let p = Path::new(conf_path);
     if !p.exists() {
-        return Err(format!("{conf_path} does not exist — run `arola init` first"));
+        return Err(format!("{conf_path} does not exist — run `baserri init` first"));
     }
     Conf::load(p)
 }
@@ -112,7 +113,7 @@ where
             Some(p) => PathBuf::from(p),
             None => artifact()?,
         },
-        daemon_config: PathBuf::from(conf.or("daemon_config", "arolad.conf")),
+        daemon_config: PathBuf::from(conf.or("daemon_config", "baserrid.conf")),
         conf,
         facts,
     };
@@ -138,11 +139,11 @@ fn doctor(host: &Host) -> Result<(), String> {
     );
     println!("temp {} C, throttle flags {}", f.get("temp_c"), f.get("throttled"));
     println!(
-        "docker {} / tailscale {} / restic {} / arolad {}",
+        "docker {} / tailscale {} / restic {} / baserrid {}",
         f.get("docker"),
         f.get("tailscale"),
         f.get("restic"),
-        f.get("arolad")
+        f.get("baserrid")
     );
 
     let warnings = f.warnings();
@@ -215,7 +216,7 @@ fn converge(ctx: &Ctx, host: &Host, write: bool, only: Option<&str>) -> Result<(
     if write {
         println!("{changed} changed, {} steps total", steps.len());
     } else {
-        println!("{} steps checked — run `arola apply` to converge", steps.len());
+        println!("{} steps checked — run `baserri apply` to converge", steps.len());
     }
     for b in &blocked {
         println!("needs you: {b}");
@@ -244,17 +245,18 @@ fn target_dir() -> Result<PathBuf, String> {
 }
 
 fn artifact() -> Result<PathBuf, String> {
-    Ok(target_dir()?.join(TARGET).join("release").join("arolad"))
+    Ok(target_dir()?.join(TARGET).join("release").join("baserrid"))
 }
 
 fn build() -> Result<PathBuf, String> {
     if !run::which("cargo") {
         return Err("cargo is not on PATH".into());
     }
-    println!("building arolad for {TARGET} ...");
-    let out = run::cmd(
+    println!("building baserrid for {TARGET} ...");
+    let out = run::cmd_env(
         "cargo",
-        &["build", "--release", "--target", TARGET, "--bin", "arolad"],
+        &["build", "--release", "--target", TARGET, "--bin", "baserrid"],
+        &[(LINKER_VAR, "rust-lld")],
     )
     .map_err(|e| e.to_string())?;
     if !out.ok() {
@@ -274,8 +276,8 @@ fn build() -> Result<PathBuf, String> {
 
 fn init(conf_path: &Path) -> Result<(), String> {
     write_if_absent(conf_path, HOST_TEMPLATE)?;
-    write_if_absent(Path::new("arolad.conf"), DAEMON_TEMPLATE)?;
-    println!("\nfill in `host`, then the bot token and your chat id in arolad.conf.");
+    write_if_absent(Path::new("baserrid.conf"), DAEMON_TEMPLATE)?;
+    println!("\nfill in `host`, then the bot token and your chat id in baserrid.conf.");
     println!("chat id: message @userinfobot on Telegram. Both files are gitignored.");
     Ok(())
 }
@@ -290,9 +292,9 @@ fn write_if_absent(path: &Path, body: &str) -> Result<(), String> {
     Ok(())
 }
 
-const HOST_TEMPLATE: &str = r#"host = arola.local
+const HOST_TEMPLATE: &str = r#"host = baserri.local
 user = pi
-hostname = arola
+hostname = baserri
 timezone = Europe/Madrid
 lan_cidr = 192.168.1.0/24
 
@@ -306,7 +308,7 @@ firewall = true
 ssh_harden = true
 unattended_upgrades = true
 sudo_allowlist = true
-arolad = true
+baserrid = true
 "#;
 
 const DAEMON_TEMPLATE: &str = r#"token =
@@ -320,7 +322,7 @@ poll_timeout_s = 25
 disk_pct = 85
 temp_c = 75
 interval_s = 600
-units = docker, arolad
+units = docker, baserrid
 
 [jobs]
 uptime = uptime

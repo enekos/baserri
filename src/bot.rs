@@ -35,13 +35,13 @@ pub struct Bot {
     pending: Option<Pending>,
 }
 
-pub const HELP: &str = "<b>arola</b>
+pub const HELP: &str = "<b>baserri</b>
 /status - load, memory, temperature, throttling, disk
 /df - filesystem usage
 /jobs - the named jobs in the config
 /run &lt;job&gt; - run one of them
 /logs &lt;unit&gt; [n] - journal tail
-/sh &lt;cmd&gt; - any shell command, as the arola user, after a confirm
+/sh &lt;cmd&gt; - any shell command, as the baserri user, after a confirm
 /reboot - after a confirm
 /no - drop whatever is waiting for a confirm";
 

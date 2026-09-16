@@ -39,6 +39,20 @@ pub fn cmd(prog: &str, args: &[&str]) -> io::Result<Out> {
     cmd_stdin(prog, args, None)
 }
 
+pub fn cmd_env(prog: &str, args: &[&str], env: &[(&str, &str)]) -> io::Result<Out> {
+    let mut c = Command::new(prog);
+    c.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    for (k, v) in env {
+        c.env(k, v);
+    }
+    let done = c.spawn()?.wait_with_output()?;
+    Ok(Out {
+        code: done.status.code().unwrap_or(-1),
+        out: String::from_utf8_lossy(&done.stdout).to_string(),
+        err: String::from_utf8_lossy(&done.stderr).to_string(),
+    })
+}
+
 pub fn cmd_stdin(prog: &str, args: &[&str], stdin: Option<&str>) -> io::Result<Out> {
     let mut child = Command::new(prog)
         .args(args)
@@ -95,6 +109,12 @@ mod tests {
     fn last_line_falls_back_to_stderr() {
         let o = cmd("sh", &["-c", "echo reason >&2; exit 10"]).unwrap();
         assert_eq!(o.last_line(), "reason");
+    }
+
+    #[test]
+    fn env_reaches_the_child() {
+        let o = cmd_env("sh", &["-c", "echo $BASERRI_TEST_VAR"], &[("BASERRI_TEST_VAR", "set")]).unwrap();
+        assert_eq!(o.out.trim(), "set");
     }
 
     #[test]

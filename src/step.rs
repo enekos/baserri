@@ -102,7 +102,7 @@ impl Step {
             }
             Step::Manual { instruction, .. } => Err(format!("needs you: {instruction}")),
             Step::Upload(u) => {
-                let staged = format!("/tmp/arola-upload-{}", u.name);
+                let staged = format!("/tmp/baserri-upload-{}", u.name);
                 let put = host.put(&u.local, &staged).map_err(|e| e.to_string())?;
                 if !put.ok() {
                     return Err(format!("scp failed: {}", put.joined().trim()));
@@ -168,8 +168,8 @@ mod tests {
     #[test]
     fn sha256_matches_the_shell() {
         let mut f = std::env::temp_dir();
-        f.push(format!("arola-sha-test-{}", std::process::id()));
-        std::fs::File::create(&f).unwrap().write_all(b"arola").unwrap();
+        f.push(format!("baserri-sha-test-{}", std::process::id()));
+        std::fs::File::create(&f).unwrap().write_all(b"baserri").unwrap();
         let got = sha256_local(&f).unwrap();
         let want = run::cmd("shasum", &["-a", "256", &f.display().to_string()]).unwrap();
         std::fs::remove_file(&f).ok();
@@ -179,6 +179,6 @@ mod tests {
 
     #[test]
     fn a_missing_file_has_no_hash() {
-        assert!(sha256_local(std::path::Path::new("/nope/arola/missing")).is_none());
+        assert!(sha256_local(std::path::Path::new("/nope/baserri/missing")).is_none());
     }
 }

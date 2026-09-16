@@ -21,7 +21,7 @@ impl Host {
             user: c.or("user", "pi").to_string(),
             addr,
             port: c.num("port", 22) as u16,
-            control: c.or("control_path", "/tmp/arola-ssh-%C").to_string(),
+            control: c.or("control_path", "/tmp/baserri-ssh-%C").to_string(),
             identity: c.get("identity").map(str::to_string),
         })
     }
@@ -105,9 +105,9 @@ mod tests {
 
     #[test]
     fn defaults_and_overrides() {
-        let c = Conf::parse("host = arola.local\n").unwrap();
+        let c = Conf::parse("host = baserri.local\n").unwrap();
         let h = Host::from_conf(&c).unwrap();
-        assert_eq!(h.target(), "pi@arola.local");
+        assert_eq!(h.target(), "pi@baserri.local");
         assert_eq!(h.port, 22);
 
         let c = Conf::parse("host = 10.0.0.5\nuser = eneko\nport = 2222\n").unwrap();
@@ -127,6 +127,6 @@ mod tests {
         let joined = h.opts().join(" ");
         assert!(joined.contains("BatchMode=yes"));
         assert!(joined.contains("ControlMaster=auto"));
-        assert!(joined.contains("ControlPath=/tmp/arola-ssh-%C"));
+        assert!(joined.contains("ControlPath=/tmp/baserri-ssh-%C"));
     }
 }

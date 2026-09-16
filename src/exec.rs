@@ -105,8 +105,8 @@ mod tests {
         assert_eq!(parse("/status"), Cmd::Status);
         assert_eq!(parse("  /df  "), Cmd::Disk);
         assert_eq!(parse("/run backup"), Cmd::Run("backup".into()));
-        assert_eq!(parse("/logs arolad 10"), Cmd::Logs("arolad".into(), 10));
-        assert_eq!(parse("/logs arolad"), Cmd::Logs("arolad".into(), 40));
+        assert_eq!(parse("/logs baserrid 10"), Cmd::Logs("baserrid".into(), 10));
+        assert_eq!(parse("/logs baserrid"), Cmd::Logs("baserrid".into(), 40));
         assert_eq!(parse("/sh df -h /"), Cmd::Shell("df -h /".into()));
         assert_eq!(parse("/yes a1b2c3"), Cmd::Confirm("a1b2c3".into()));
         assert_eq!(parse("/no"), Cmd::Cancel);
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn group_suffixes_and_case_are_handled() {
-        assert_eq!(parse("/Status@arola_bot"), Cmd::Status);
+        assert_eq!(parse("/Status@baserri_bot"), Cmd::Status);
     }
 
     #[test]
@@ -133,14 +133,14 @@ mod tests {
 
     #[test]
     fn the_logs_count_is_capped() {
-        assert_eq!(parse("/logs arolad 99999"), Cmd::Logs("arolad".into(), 200));
+        assert_eq!(parse("/logs baserrid 99999"), Cmd::Logs("baserrid".into(), 200));
     }
 
     #[test]
     fn unit_names_reject_shell_metacharacters() {
-        assert!(unit_is_safe("arolad"));
+        assert!(unit_is_safe("baserrid"));
         assert!(unit_is_safe("docker.service"));
-        assert!(!unit_is_safe("arolad; rm -rf /"));
+        assert!(!unit_is_safe("baserrid; rm -rf /"));
         assert!(!unit_is_safe("$(id)"));
         assert!(!unit_is_safe(""));
     }

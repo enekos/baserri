@@ -35,10 +35,10 @@ pub fn build(ctx: &Ctx) -> Vec<Step> {
     let c = &ctx.conf;
     let f = &ctx.facts;
 
-    let hostname = c.or("hostname", "arola").to_string();
+    let hostname = c.or("hostname", "baserri").to_string();
     let timezone = c.or("timezone", "Europe/Madrid").to_string();
     let login = c.or("user", "pi").to_string();
-    let svc = c.or("service_user", "arola").to_string();
+    let svc = c.or("service_user", "baserri").to_string();
     let packages = {
         let list = c.list("packages");
         if list.is_empty() {
@@ -148,7 +148,7 @@ echo "zram @pct@%"
             name: "ssd-boot".into(),
             why: "forge plus Docker plus Postgres will write an SD card to death in months".into(),
             check: "exit 10".into(),
-            instruction: "root is still on the SD card. Update the EEPROM (`sudo rpi-eeprom-update -a`), set BOOT_ORDER=0xf41, clone to a UAS-capable USB3 SSD and re-run. arola will not add a disk swapfile on an SD card.".into(),
+            instruction: "root is still on the SD card. Update the EEPROM (`sudo rpi-eeprom-update -a`), set BOOT_ORDER=0xf41, clone to a UAS-capable USB3 SSD and re-run. baserri will not add a disk swapfile on an SD card.".into(),
         });
     } else {
         steps.push(shell(
@@ -180,15 +180,15 @@ echo "@swapmb@M on $(findmnt -no SOURCE /)"
         "service-user",
         "the control plane must not run as root or as you",
         &tpl(
-            r#"id -u @svc@ >/dev/null 2>&1 && test -d /etc/arola && echo "@svc@" || exit 10"#,
+            r#"id -u @svc@ >/dev/null 2>&1 && test -d /etc/baserri && echo "@svc@" || exit 10"#,
             &vars,
         ),
         &tpl(
             r#"
-id -u @svc@ >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/arola --shell /bin/bash @svc@
-install -d -o @svc@ -g @svc@ -m 0750 /var/lib/arola
-install -d -o @svc@ -g @svc@ -m 0755 /opt/arola
-install -d -o root -g @svc@ -m 0750 /etc/arola
+id -u @svc@ >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/baserri --shell /bin/bash @svc@
+install -d -o @svc@ -g @svc@ -m 0750 /var/lib/baserri
+install -d -o @svc@ -g @svc@ -m 0755 /opt/baserri
+install -d -o root -g @svc@ -m 0750 /etc/baserri
 echo "@svc@"
 "#,
             &vars,
@@ -226,7 +226,7 @@ echo enabled
                 r#"
 test -s /home/@user@/.ssh/authorized_keys || { echo "no authorized_keys for @user@ - refusing to disable password login"; exit 1; }
 install -d -m 0755 /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/10-arola.conf <<'CONF'
+cat > /etc/ssh/sshd_config.d/10-baserri.conf <<'CONF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
@@ -289,7 +289,7 @@ echo capped
         ));
         steps.push(Step::Manual {
             name: "tailscale-up".into(),
-            why: "joining the tailnet needs a browser login, which arola cannot do for you".into(),
+            why: "joining the tailnet needs a browser login, which baserri cannot do for you".into(),
             check: "tailscale status >/dev/null 2>&1 && echo up || exit 10".into(),
             instruction: tpl(
                 "run `sudo tailscale up --ssh --hostname=@hostname@` on the box, then re-run apply",
@@ -324,14 +324,14 @@ echo active
         steps.push(shell(
             "sudo-allowlist",
             "the bot may restart a unit and reboot the box, and nothing else",
-            r#"test -f /etc/sudoers.d/arola && visudo -c -f /etc/sudoers.d/arola >/dev/null && echo present || exit 10"#,
+            r#"test -f /etc/sudoers.d/baserri && visudo -c -f /etc/sudoers.d/baserri >/dev/null && echo present || exit 10"#,
             &tpl(
                 r#"
-cat > /etc/sudoers.d/arola <<'SUDO'
+cat > /etc/sudoers.d/baserri <<'SUDO'
 @svc@ ALL=(root) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/sbin/reboot, /sbin/reboot, /usr/bin/docker
 SUDO
-chmod 0440 /etc/sudoers.d/arola
-visudo -c -f /etc/sudoers.d/arola >/dev/null
+chmod 0440 /etc/sudoers.d/baserri
+visudo -c -f /etc/sudoers.d/baserri >/dev/null
 echo present
 "#,
                 &vars,
@@ -340,55 +340,55 @@ echo present
         ));
     }
 
-    if c.flag("arolad", true) {
+    if c.flag("baserrid", true) {
         steps.push(Step::Upload(Upload {
-            name: "arolad-binary".into(),
+            name: "baserrid-binary".into(),
             why: "the Telegram control plane".into(),
             local: ctx.daemon_binary.clone(),
-            remote: "/usr/local/bin/arolad".into(),
+            remote: "/usr/local/bin/baserrid".into(),
             mode: "0755".into(),
-            post: "systemctl restart arolad >/dev/null 2>&1 || true".into(),
+            post: "systemctl restart baserrid >/dev/null 2>&1 || true".into(),
         }));
         steps.push(Step::Upload(Upload {
-            name: "arolad-config".into(),
+            name: "baserrid-config".into(),
             why: "the bot token never lives in git".into(),
             local: ctx.daemon_config.clone(),
-            remote: "/etc/arola/arolad.conf".into(),
+            remote: "/etc/baserri/baserrid.conf".into(),
             mode: "0640".into(),
             post: tpl(
-                "chown root:@svc@ /etc/arola/arolad.conf\nsystemctl restart arolad >/dev/null 2>&1 || true",
+                "chown root:@svc@ /etc/baserri/baserrid.conf\nsystemctl restart baserrid >/dev/null 2>&1 || true",
                 &vars,
             ),
         }));
         steps.push(shell(
-            "arolad-service",
+            "baserrid-service",
             "restart on crash, start on boot",
-            r#"systemctl is-enabled arolad >/dev/null 2>&1 && systemctl is-active arolad >/dev/null 2>&1 && echo running || exit 10"#,
+            r#"systemctl is-enabled baserrid >/dev/null 2>&1 && systemctl is-active baserrid >/dev/null 2>&1 && echo running || exit 10"#,
             &tpl(
                 r#"
-cat > /etc/systemd/system/arolad.service <<'UNIT'
+cat > /etc/systemd/system/baserrid.service <<'UNIT'
 [Unit]
-Description=arola control plane
+Description=baserri control plane
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=@svc@
-ExecStart=/usr/local/bin/arolad --config /etc/arola/arolad.conf
+ExecStart=/usr/local/bin/baserrid --config /etc/baserri/baserrid.conf
 Restart=always
 RestartSec=5
 PrivateTmp=yes
 ProtectSystem=full
-WorkingDirectory=/var/lib/arola
+WorkingDirectory=/var/lib/baserri
 
 [Install]
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now arolad
+systemctl enable --now baserrid
 sleep 1
-systemctl is-active arolad
+systemctl is-active baserrid
 "#,
                 &vars,
             ),
@@ -407,8 +407,8 @@ mod tests {
         Ctx {
             conf: Conf::parse(conf).unwrap(),
             facts: Facts::parse(facts),
-            daemon_binary: PathBuf::from("/tmp/arolad"),
-            daemon_config: PathBuf::from("/tmp/arolad.conf"),
+            daemon_binary: PathBuf::from("/tmp/baserrid"),
+            daemon_config: PathBuf::from("/tmp/baserrid.conf"),
         }
     }
 
@@ -445,9 +445,9 @@ mod tests {
 
     #[test]
     fn flags_turn_whole_lanes_off() {
-        let off = "host = pi\ndocker = false\ntailscale = false\nfirewall = false\narolad = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\n";
+        let off = "host = pi\ndocker = false\ntailscale = false\nfirewall = false\nbaserrid = false\nssh_harden = false\nsudo_allowlist = false\nunattended_upgrades = false\n";
         let names = names(&build(&ctx(off, "root_kind=usb\n")));
-        for absent in ["docker", "tailscale", "firewall", "arolad-binary", "ssh-harden"] {
+        for absent in ["docker", "tailscale", "firewall", "baserrid-binary", "ssh-harden"] {
             assert!(!names.contains(&absent.to_string()), "{absent} should be off");
         }
         assert!(names.contains(&"hostname".to_string()));

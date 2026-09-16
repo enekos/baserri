@@ -42,7 +42,7 @@ emit curl "$(have curl)"
 emit zram "$(test -e /dev/zram0 && echo yes || echo no)"
 emit systemd "$(have systemctl)"
 emit sudo_nopasswd "$(sudo -n true >/dev/null 2>&1 && echo yes || echo no)"
-emit arolad "$(test -x /usr/local/bin/arolad && echo yes || echo no)"
+emit baserrid "$(test -x /usr/local/bin/baserrid && echo yes || echo no)"
 "#;
 
 #[derive(Debug, Default, Clone)]
@@ -112,7 +112,7 @@ impl Facts {
         let mut w = Vec::new();
         if self.get("arch") != "aarch64" {
             w.push(format!(
-                "arch is {} — arola targets aarch64; a 32-bit userland cannot run the arm64 images",
+                "arch is {} — baserri targets aarch64; a 32-bit userland cannot run the arm64 images",
                 self.get("arch")
             ));
         }

@@ -32,7 +32,7 @@ impl Api {
 
     fn call(&self, method: &str, body: &str, max_time: u64) -> Result<Value, String> {
         let seq = SEQ.fetch_add(1, Ordering::Relaxed);
-        let body_path = self.tmp.join(format!("arolad-{}-{seq}.json", std::process::id()));
+        let body_path = self.tmp.join(format!("baserrid-{}-{seq}.json", std::process::id()));
         fs::write(&body_path, body).map_err(|e| format!("staging the request body: {e}"))?;
         let config = format!(
             "url = \"{}\"\nheader = \"Content-Type: application/json\"\ndata-binary = \"@{}\"\nsilent\nshow-error\nmax-time = \"{max_time}\"\n",

@@ -1,21 +1,21 @@
 [package]
-name = "arola"
+name = "baserri"
 version = "0.1.0"
 edition = "2024"
 description = "Provisioner and Telegram control plane for a Raspberry Pi home server"
 license = "MIT"
 
 [lib]
-name = "arola"
+name = "baserri"
 path = "src/lib.rs"
 
 [[bin]]
-name = "arola"
-path = "src/bin/arola.rs"
+name = "baserri"
+path = "src/bin/baserri.rs"
 
 [[bin]]
-name = "arolad"
-path = "src/bin/arolad.rs"
+name = "baserrid"
+path = "src/bin/baserrid.rs"
 
 [profile.release]
 opt-level = "z"

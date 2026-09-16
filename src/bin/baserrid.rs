@@ -1,10 +1,10 @@
-use arola::alerts::{self, Thresholds, Watch};
-use arola::bot::{Bot, Reply};
-use arola::conf::Conf;
-use arola::exec::{self, Limits};
-use arola::facts::Facts;
-use arola::run;
-use arola::telegram::Api;
+use baserri::alerts::{self, Thresholds, Watch};
+use baserri::bot::{Bot, Reply};
+use baserri::conf::Conf;
+use baserri::exec::{self, Limits};
+use baserri::facts::Facts;
+use baserri::run;
+use baserri::telegram::Api;
 use std::path::Path;
 use std::process::ExitCode;
 use std::thread;
@@ -16,12 +16,12 @@ fn main() -> ExitCode {
         .iter()
         .position(|a| a == "--config")
         .and_then(|i| args.get(i + 1).cloned())
-        .unwrap_or_else(|| "/etc/arola/arolad.conf".to_string());
+        .unwrap_or_else(|| "/etc/baserri/baserrid.conf".to_string());
 
     match start(Path::new(&path)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("arolad: {e}");
+            eprintln!("baserrid: {e}");
             ExitCode::FAILURE
         }
     }
@@ -56,7 +56,7 @@ fn start(path: &Path) -> Result<(), String> {
     let _ = api.send(
         home,
         &format!(
-            "arola up — {} on {}, {} MB RAM, root {}% used",
+            "baserri up — {} on {}, {} MB RAM, root {}% used",
             facts.get("os"),
             facts.get("model"),
             facts.get("mem_mb"),
